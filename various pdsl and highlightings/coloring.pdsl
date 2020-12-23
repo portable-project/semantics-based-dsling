@@ -1,0 +1,74 @@
+﻿[OmitPattern(commentsAndSpaces)]
+[RootRule(coloringRules)]
+ColoringSchema {
+
+/*
+	VSPlugin pre-build
+
+	attrib -R $(ProjectDir)Impl2\HighlightingEngine\HighlightingTextModel.cs 
+	$(SolutionDir)Portable.Parser.TextModelGenerator\$(OutDir)Portable.Parser.TextModelGenerator.exe $(SolutionDir)Portable.Parser\Definitions\coloring.pdsl $(ProjectDir)Impl2\HighlightingEngine\HighlightingTextModel.cs Portable.Parser.VSPlugin.Impl2.HighlightingEngine
+*/
+	commentsAndSpaces: "([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*";
+
+    name: "[a-zA-Z_][a-zA-Z_0-9]*";
+    num: "[0-9]+";
+    complexName: name ('.' name)*;
+    
+    colorValue: "\#[0-9A-Fa-f]{6}";
+    typefaceValue: kind* {
+        #kind: {
+            |italic: 'italic';
+            |bold: 'bold';
+            |underline: 'underline';
+        };
+    };
+    
+    coloringRules: directive* rule* {
+        rule: specifiers style;
+        specifiers: specifier (',' specifier)*;
+    };
+    
+    directive: '!' entry {
+        #entry: {
+            |open: kw.open complexName ';';
+            |namedStyle: kw.style complexName style;
+            |defaultEntry: kw.default_ style;
+        };
+    };
+    
+    specifier: root pathItem ('/' pathItem)* depthSpec limiters {
+        root: '/'? ;
+        depthSpec: ('+' num?)?;
+		limiters: ('-' pathItem)*; 
+        pathItem: {
+            |relative: '.' ruleName;
+            |absolute: ruleName;
+        };
+        ruleName: part ('.' part)* {
+	    	part: name|any|anyDepth;
+	    	any: '*';
+			anyDepth: '**';
+	    };
+    };
+    
+    style: {
+        |reference: kw.as_ complexName;
+        |inline: '{' (item ';')* '}' {
+            #item: {
+                |color: kw.color ':' colorValue;
+                |background: kw.background ':' colorValue;
+                |typeface: kw.face ':' typefaceValue;
+            };
+         };
+    };
+    
+	kw: ' ' {
+	    color: 'color';
+	    background: 'background';
+	    face: 'face';
+	    as_: 'as';
+	    open: 'open';
+	    style: 'style';
+	    default_: 'default';
+    };
+}

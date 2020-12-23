@@ -1,0 +1,300 @@
+[RootRule(namespaceContent)]
+CSharp {
+
+	/* -------------------------------------------------------------------------------------------------------------------------------------- */
+
+	namespaceDef: 'namespace' namespaceName '{' namespaceContent '}';
+	namespaceContent: namespaceElement*;
+
+	namespaceName: dottedIdentifier;
+	namespaceElement: namespaceDef | nsUsing | nsExternAlias | typeDef;
+
+	namespaceOrTypeName: namespaceName | fullTypeNameRef;
+	nsUsing: 'using'  (nsUsingAlias '=')? namespaceOrTypeName ';';
+	nsUsingAlias: identifier;
+	nsExternAlias: 'extern' 'alias' identifier;
+
+	typeDef: classDef; /* structDef | interfaceDef | delegateDef | enumDef ~ TODO*/
+
+	/* -------------------------------------------------------------------------------------------------------------------------------------- */
+	
+	usingExpr: 'using' '(' expr ')' expr;
+
+	ifExpr: 'if' '(' expr ')' expr ('else' expr)?;
+
+	doExpr: 'do' expr 'while' '(' expr ')';
+
+	whileExpr: 'while' '(' expr ')' expr;
+
+	forExpr: 'for' '(' forExprElement ';' forExprElement ';' forExprElement ')' expr;
+	forExprElement: expr?;
+
+	foreachExpr: 'foreach' '(' fullTypeNameRef identifier 'in' expr ')' expr;
+
+	switchExpr: 'switch' '(' expr ')' '{' switchCaseBranch* (switchDefaultBranch switchCaseBranch*)? '}';
+	switchCaseBranch: 'case' constExpr ':' expr;
+	switchDefaultBranch: 'default' ':' expr;
+
+	linqExpr: 'from' identifier 'in' expr linqExprElement*;
+	linqExprElement: linqExprElementOpWhere | linqExprElementOpOrderBy | linqExprElementOpSelect | linqExprElementOpGroup;
+	linqExprElementOpWhere: 'where' expr;
+	linqExprElementOpOrderBy: 'orderby' expr;
+	linqExprElementOpSelect: 'select' expr;
+	linqExprElementOpGroup: 'group' expr 'by' expr 'into' identifier;
+	
+	
+	checkedExpr: 'checked' expr;
+	uncheckedExpr: 'unchecked' expr;
+
+	unaryOperator: (
+		('++' | '--' | '+' | '-' | '!' | '~' | '&' | '*') expr /* TODO!!!!! priority */
+	) | (
+		'(' fullTypeNameRef ')'
+	) | (
+		'sizeof' '(' fullTypeNameRef ')'
+	) | (
+		'typeof' '(' ')'
+	);
+
+	binaryOperator: (
+		expr (
+			'=>' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' |
+			'*' | '/' | '%' | '+' | '-' | 
+			'<<' | '>>' | '<=' | '>=' | '<' | '>' | 'is' | 'as' | '==' | '!=' | '&&' | '||' | 
+			'&' | '|' | '^' | '??' | ('?' expr ':') | '='
+		) expr
+	);
+
+	instantiationExpr: 'new' fullTypeNameRef instantiationArgs instantiationInitializer?;
+	instantiationArgs: instantiationArrayQualifiers | methodInvokeArgs;
+	instantiationArrayQualifiers: '[' expr (',' expr)* ']';
+	instantiationInitializer: ('{' '}') | propsInitializer | listInitializer;
+	propsInitializer: '{' propsInitializerElement (',' propsInitializerElement)* '}';
+	propsInitializerElement: identifier '=' expr;
+	listInitializer: '{' listInitializerElement (',' listInitializerElement)* '}';
+	listInitializerElement: listInitializer | expr;
+
+	expr: x /* TODO */ ;
+
+
+	/* -------------------------------------------------------------------------------------------------------------------------------------- */
+
+	classDef: modifiers 'class' fullTypeNameDef /* TODO */ '{' classContent '}';
+	classContent: classElement*;
+
+	classElement: methodDef | propDef | fieldDef; /* TODO */
+
+
+	propDef: modifiers fullTypeNameRef fullPropNameDef '{' propGetter? propSetter? '}';
+
+	propGetter: accessModifier? 'get' (';' | methodBody);
+	propSetter: accessModifier? 'set' (';' | methodBody);
+
+
+	fieldDef: modifiers fullTypeNameRef fullFieldNameDef fieldInitializer?;
+
+	fieldInitializer: '=' expression;
+
+
+	methodDef: modifiers fullTypeNameRef fullMethodNameDef '(' arglist ')' /* TODO */ (methodBody | emptyMethodBody);
+
+	arglist: argDef*;
+	argDef: argModifiers argType argName;
+	argType: fullTypeNameRef;
+	argName: identifier;
+
+	argModifier: 'ref' | 'out' | 'params';
+	argModifiers: argModifier*;
+
+	emptyMethodBody: ';';
+	methodBody: '{' expression* '}';
+
+	fullTypeNameDef: genericIdentifierDef;
+	fullTypeNameRef: genericIdentifierRef;
+
+	genericConstraint: 'where' identifier ':' genericConstraintElement (',' genericConstraintElement)*;
+	genericConstraintElement: predeninedConstraint | fullTypeNameRef;
+	predeninedConstraint: 'new()' | 'struct' | 'class';
+
+	fullMethodNameDef: genericIdentifier+;
+	fullPropNameDef: identifier;
+	fullFieldNameDef: identifier;
+
+	/* -------------------------------------------------------------------------------------------------------------------------------------- */
+
+	expression: "[^{}]*(?>\{(?R)\})*[{}]*"; /* TODO */
+
+	/* -------------------------------------------------------------------------------------------------------------------------------------- */
+
+
+	anyChar: ".";
+
+	genericIdentifierDef: genericIdentifier;
+	genericIdentifierRef: genericIdentifier ('.' genericIdentifier)*;
+
+	genericIdentifier: identifier genericIdentifierArgs?;
+	genericIdentifierArgs: '<' (genericIdentifierArg (',' genericIdentifierArg)*)? '>';
+	genericIdentifierArg: genericIdentifier;
+
+	dottedIdentifier: dottedIdentifier ('.' dottedIdentifier)*;
+	identifier: ('@' identifierOrKeyword) | (!keyword identifierOrKeyword);
+
+	identifierOrKeyword: "[_\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}][\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}\p{Cf}]*";
+
+	anyLiteral: nullLiteral | strLiteral | charLiteral | (!realNumber intLiteral) | realNumber;
+
+	decNumber: "[0-9]+";
+	hexNumber: "0[xX][0-9a-fA-F]+";
+	binNumber: "0[bB][01]+";
+	octNumber: "0[oO][0-7]+";
+	intLiteral: hexNumber | binNumber | octNumber | decNumber;
+
+
+	real: "[0-9]+\.[0-9]*" ;
+	realNumber: real /* TODO */ ;
+
+	strLiteralContent: "[^\"\\]*(?:\\.[^\"\\]*)*";
+	strLiteral: ('@"' strLiteralContent '"') | ('"' strLiteralContent '"');
+	charLiteral: "'[^\']*'";
+	nullLiteral: 'null';
+
+	#accessModifier: 'private' | 'public' | 'protected' | 'internal';
+	#otherModifier: 'abstract' | 'const' | 'extern' | 'new' | 'override' | 'partial' | 'readonly' | 'sealed' | 'static' | 'unsafe' | 'virtual' | 'volatile';
+	modifier: accessModifier | otherModifier;
+	modifiers: modifier*;
+
+	contextualKeyword: 'from'
+					| 'get'
+					| 'group'
+					| 'into'
+					| 'join'
+					| 'let'
+					| 'orderby'
+					| 'partial'
+					| 'select'
+					| 'set'
+					| 'value'
+					| 'where'
+					| 'yield';
+
+	keyword: 'abstract'
+			|'event'
+			|'new'
+			|'struct'
+			|'as'
+			|'explicit'
+			|'null'
+			|'switch'
+			|'base'
+			|'extern'
+			|'object'
+			|'this'
+			|'bool'
+			|'false'
+			|'operator'
+			|'throw'
+			|'break'
+			|'finally'
+			|'out'
+			|'true'
+			|'byte'
+			|'fixed'
+			|'override'
+			|'try'
+			|'case'
+			|'float'
+			|'params'
+			|'typeof'
+			|'catch'
+			|'for'
+			|'private'
+			|'uint'
+			|'char'
+			|'foreach'
+			|'protected'
+			|'ulong'
+			|'checked'
+			|'goto'
+			|'public'
+			|'unchecked'
+			|'class'
+			|'if'
+			|'readonly'
+			|'unsafe'
+			|'const'
+			|'implicit'
+			|'ref'
+			|'ushort'
+			|'continue'
+			|'in'
+			|'return'
+			|'using'
+			|'decimal'
+			|'int'
+			|'sbyte'
+			|'virtual'
+			|'default'
+			|'interface'
+			|'sealed'
+			|'volatile'
+			|'delegate'
+			|'internal'
+			|'short'
+			|'void'
+			|'do'
+			|'is'
+			|'sizeof'
+			|'while'
+			|'double'
+			|'lock'
+			|'stackalloc'
+			|'else'
+			|'long'
+			|'static'
+			|'enum'
+			|'namespace'
+			|'string';
+
+
+	comment1: (
+		"/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/"
+	) | (
+		"//(^[\u000D\u000A(\u000D\u000A)\u2085\u2028\u2029])*"
+	);
+
+	comment2: (
+		"//[^\u000D^\u000A^(\u000D\u000A)^\u0085^\u2028^\u2029]*"
+	) | (
+		"/\*[ [^\*] ([\*]+[^/]) ]*[\*]+/"
+	);
+
+
+	/* ------------------------------------------------------------------------------------------------- */
+
+
+	newLine: "[\u000D\u000A(\u000D\u000A)\u2085\u2028\u2029]";
+	whitespace: "[\p{Zs}\u0009\u000B\u000C]";
+
+	/*
+			Basics from CS standart
+
+		identifier: available-identifier | ('@' identifier-or-keyword);
+
+		available-identifier: identifier-or-keyword that is not a keyword
+
+		identifier-or-keyword: identifier-start-character identifier-part-charactersopt;
+
+		identifier-start-character: letter-character | '_';
+
+		identifier-part-characters: identifier-part-character | (identifier-part-characters identifier-part-character);
+
+		identifier-part-character: letter-character | decimal-digit-character | connecting-character | combining-character | formatting-character;
+
+		letter-character: "[\p{Lu}\p{Ll}\p{Lt}\p{Lm}\p{Lo}\p{Nl}]";
+		combining-character: "[\p{Mn}\p{Mc}]";
+		decimal-digit-character: "[\p{Nd}]";
+		connecting-character: "[\p{Pc}]";
+		formatting-character: "[\p{Cf}]";
+
+	*/
+}

@@ -1,0 +1,55 @@
+﻿[RootRule(sequence)]
+RegexDefinition { 
+	
+	/* regular expressions subset grammar for parsing it to FSM model */
+	
+	sequence: item*;
+	
+	item: {
+		|#simple: {
+			/* |condition: '(?(' sequence ')' sequence '|' sequence ')'; */
+			|group: '(' sequence ')';
+			|class: '[' inverted? charClassBody ']' {
+				inverted: '^';
+			 };
+		 };
+		|#complex: {
+			|sequence: sitem sitem+ { 
+				sitem: alternatives | repeat | simple;
+			 };
+			|alternatives: aitem ('|' aitem)+ { 
+				aitem: repeat | simple;
+			 };
+			|repeat: item quantor {
+				quantor: '*' | '+' | '?' | ('{' qnumbers '}');
+				qnumbers: {
+					|full: number ',' number;
+					|max: ',' number;
+					|min: number ',';
+					|exact: number;
+				};
+			 };
+		 };
+	};
+
+	charSpec: {
+		|escapeSeq: '\a'|'\t'|'\r'|'\v'|'\f'|'\n'|'\e'|'\0'|'\w'|'\W'|'\s'|'\S'|'\d'|'\D';
+		|hexCode: '\x' hex2;
+		|unicode: '\u' hex4;
+		|escapedChar: '\' . ;
+		|char: . ;
+	};
+
+	charClassBody: citem+ {
+		citem: {
+			|range: charSpec '-' charSpec;
+			|char: !']' charSpec;
+		};
+	};
+
+	hex2: hexItem{2};
+	hex4: hexItem{4};
+	#hexItem: ('0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9'|'a'|'b'|'c'|'d'|'e'|'f'|'A'|'B'|'C'|'D'|'E'|'F');
+
+	number: ('0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9')+;
+}

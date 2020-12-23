@@ -1,0 +1,17 @@
+﻿[OmitPattern("[\s]*")]
+[RootRule(expr)]
+SimpleArithmetics {
+
+	productOp: '*' | '/';
+	sumOp: '+' | '-';
+
+	[RewriteRecursion]
+	/*[ExpandRecursion]*/
+	#expr: {
+		|sum: expr sumOp expr;
+		|product: expr productOp expr;
+		|[right]power: expr '^' expr;
+		|#braces: '(' expr ')';
+		|num: "[0-9]+";
+	};
+}

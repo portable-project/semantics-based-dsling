@@ -1,0 +1,45 @@
+
+!default {
+	color: #ffffff;
+	background: #333333;
+}
+
+/*
+braces {
+	background: #00ffff;
+}
+*/
+
+/* let, if, then, else, switch, while, do, while, break, */
+architecture, environment, incomplete, final,
+import, subset, 
+registers, storage, view, hidden, 
+memory, range, cell, endianess, bigEndian, littleEndian, granularity,
+instructions, encode, field, immediate, register, sequence, instruction, 
+mnemonics, mnemonic, as, yes, no {
+	color: #ffff00;
+}
+
+dquotted, squotted {
+	color: #44ffff;
+}
+
+number {
+	color: #ff7474;
+}
+
+hex {
+	color: #7474ff;
+}
+
+bits {
+	color: #74ff74;
+}
+
+name, complexName {
+	color: #aaaaaa;
+}
+
+commentsAndSpaces {
+	color: #00ff00;
+}

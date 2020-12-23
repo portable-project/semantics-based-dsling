@@ -1,0 +1,349 @@
+[RootRule(namespaceDef.content)]
+[OmitPattern(commentsAndSpaces)]
+CSharp {
+
+	commentsAndSpaces: "([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*" | "//[^\r\n]*";
+	
+	identifier: "[a-zA-Z_][a-zA-Z_0-9]*";
+	dottedName: identifier ('.' identifier)*;
+	typeName: builtinTypeName|memberName;
+	memberName: (item ('.' item)*) {
+		item: identifier genericSpec? arraySpec?;
+		arraySpec: level+ {
+			level: '[' sep* ']';
+			sep: ',';
+		};
+		genericSpec: '<' (typeName (',' typeName)*)? '>';
+	};
+
+	namespaceDef: kw.namespace name '{' content '}' {
+		content: item*;
+		item: namespaceDef|using|attributes|typeDef;
+		using: {
+			|namespace: kw.using name;
+			|alias: kw.using identifier '=' name;
+		};
+		name: dottedName;
+	};
+	
+	attributes: collection* {
+		argList: ('(' arg (',' arg)* ')')? {
+			arg: {
+				|mandatory: expr;
+				|optional: identifier ':' expr;
+				|named: identifier '=' expr;
+			};
+		};
+		usage: dottedName argList;
+		collection: '[' usage (',' usage)* ']';
+	};
+	
+	typeDef: delegateTypeDef|enumTypeDef|interfaceTypeDef|structTypeDef|classTypeDef;
+	
+	delegateTypeDef: memberModifiers kw.delegate identifier genericCtxDef? arglistDef genericConstraints? ';';
+	
+	enumTypeDef: memberModifiers kw.enum identifier (':' builtinTypeName.integer)? '{' content '}' {
+		content: (item (',' item)* ','?)?;
+		item: attributes? identifier ('=' expr)?;
+	}; 
+	
+	interfaceTypeDef: memberModifiers kw.interface identifier genericCtxDef? inheritanceDef? genericConstraints? '{' content '}' {
+		content: item*;
+		item: {
+			|methodSpec: typeName identifier genericCtxDef? arglistDef genericConstraints? ';';
+			|eventSpec: kw.event typeName identifier ';';
+			|indexerSpec: typeName kw.this '[' arglistDef.body ']' propSpec.body;
+			|propSpec: typeName identifier body {
+				body: '{' ((getAccessor setAccessor?)|(setAccessor getAccessor?)) '}';
+				getAccessor: 'get' ';';
+				setAccessor: 'set' ';';
+			};
+		};
+	};
+	
+	structTypeDef: memberModifiers kw.struct identifier genericCtxDef? inheritanceDef? genericConstraints? '{' complexTypeContent '}';
+	classTypeDef: memberModifiers kw.class identifier genericCtxDef? inheritanceDef? genericConstraints? '{' complexTypeContent '}' ;
+	
+	inheritanceDef: ':' typeName (',' typeName)*;
+	
+	genericCtxDef: '<' item (',' item )* '>' {
+		item: variance? identifier;
+		variance: {
+			|in: 'in';
+			|out: 'out';
+		};
+	};
+	
+	genericConstraints: item+ {
+		item: 'where' identifier ':' spec;
+		spec:  entry (',' entry)* {
+			entry: {
+				|valueType: 'struct'; 
+				|refType: 'class'; 
+				|ctor: 'new' '(' ')';
+				|type: typeName;
+			};
+		};
+	};
+	
+	complexTypeContent: attributes|typeDef|typeMemberDef;
+	
+	typeMemberDef: {
+		|event: memberModifiers kw.event typeName identifier (body | (initializer? ';')) {
+			body: '{' ((addAccessor removeAccessor?)|(removeAccessor addAccessor?)) '}';
+			addAccessor: kw.add methodBody;
+			removeAccessor: kw.remove methodBody;
+			initializer: '=' expr;
+		};
+		|indexer: memberModifiers typeName kw.this '[' arglistDef.body ']' property.body ;
+		|property: memberModifiers typeName identifier body {
+			body: '{' ((getAccessor setAccessor?)|(setAccessor getAccessor?)) '}';
+			getAccessor: kw.get methodBody;
+			setAccessor: kw.set methodBody;
+			accessorModifier: { 
+				|private: 'private';
+				|protected: 'protected';
+				|internal: 'internal';
+			};
+		};
+		|field: memberModifiers varDefContent.explicit ';';
+		|method: memberModifiers typeName? identifier genericCtxDef? arglistDef genericConstraints? (methodBody | ';') ;
+	};
+		
+	methodBody: statement.block;
+	
+	statement: {
+		|block: '{' statement* '}';
+		|checked: 'checked' block;
+		|unchecked: 'unchecked' block;
+		|unsafe: 'unsafe' block;
+		|fixed: 'fixed' '(' typeName identifier '=' expr ')' block;
+		|if: 'if' statement;
+		|while: 'while' '(' expr ')' statement;
+		|do: 'do' block 'while' '(' expr ')';
+		|for: 'for' '(' varDefContent? ';' cond? ';' (expr (',' expr)*)? ')' statement { cond: expr; };
+		|foreach: 'foreach' '(' ('var'|typeName) identifier 'in' expr ')' statement;
+		|using: 'using' '(' (('var'|typeName) identifier '=')? expr ')' statement;
+		|lock: 'lock' '(' expr ')' statement;
+		|switch: 'switch' '(' expr ')' '{' branch* '}' {
+			branch: {
+				|case: 'case' literal ':' statement?;
+				|default: 'default' ':' statement?;
+			};
+		};
+		|break: 'break' ';';
+		|continue: 'continue' ';';
+		|return: 'return' expr? ';';
+		|goto: 'goto' target ';' {
+			target: {
+				|default: 'default';
+				|case: 'case' literal;
+				|label: identifier;
+			};
+		};
+		|try: 'try' block handler+ {
+			handler:{
+				|catch: 'catch' (typeName identifier?)? block;
+				|finally: 'finally' block;
+			};
+		};
+		|variable: varDefContent ';';
+		|expression: expr ';'; 
+	};	
+	
+	varDefContent: {
+		|inferred: 'var' identifier '=' expr;
+		|dynamic: 'dynamic' explicit.body;
+		|explicit: typeName body {
+			body: entry (',' entry)*;
+			entry: identifier ('=' expr)? ;
+		};
+	};
+	
+	memberModifiers: modifier* {
+		modifier: {
+			|public: 'public';
+			|private: 'private';
+			|protected: 'protected';
+			|internal: 'internal';
+			
+			|abstract: 'abstract';
+			|virtual: 'virtual';
+			|override: 'override';
+			|sealed: 'sealed';
+			|static: 'static';
+			
+			|partial: 'partial';
+			|extern: 'extern';
+			|readonly: 'readonly';
+			|unsafe: 'unsafe';
+			|volatile: 'volatile';
+			|new: 'new';
+		};
+	};
+	
+	arglistDef: '(' body ')' {
+		body: (arg (',' arg)*)?;
+		arg: attributes argModifier? typeName identifier ('=' expr)?;
+		argModifier: {
+			|out: kw.out;
+			|ref: kw.ref;
+			|params: kw.params;
+		};
+	};
+
+	literal: {
+		|null: 'null';
+		|bool: {
+			|true: 'true';
+			|false: 'false';
+		};
+		|string: {
+			|normal: "\"[^\"\\]*(?:\\.[^\"\\]*)*\"";
+			|multiline: "\@\"[^\"]*\"";
+		};
+		|char: "'[^']*'";
+		|hex: "0[xX][0-9a-fA-F]+";
+		|real: {		
+			|exp: "[0-9]*\.[0-9]*[eE][0-9]+[fF]?";
+			|normal: "[0-9]*\.[0-9]+[fF]?";
+		};
+		|int: "[0-9]+";
+	};
+	
+	expr:  {
+		|linqExpr: 'from' identifier 'in' expr element* {
+			element: {
+				|where: 'where' expr;
+				|orderBy: 'orderby' expr;
+				|select: 'select' expr;
+				|group: 'group' expr 'by' expr 'into' identifier;
+			};
+		};
+		|sizeof: 'sizeof' '(' typeName ')';
+		|typeof: 'typeof' '(' typeName  ')';
+		|lambda: args '=>' (statement.block | expr) {
+			args: {
+				|only: identifier;
+				|list: '(' (item (',' item)*)? ')' {
+					item: typeName? identifier;
+				};
+			};
+		};
+		|instantiation: 'new' typeName (call.args | arraySpec)? ('{' initializer '}')? {
+			initializer: {
+				|props: (item (',' item)* ','?)? {
+					item: identifier ('=' expr)?;
+				};
+				|collection: (item (',' item)* ','?)? {
+					item: {
+						|simple: expr;
+						|complex: '{' expr (',' expr)*  '}';
+					};
+				};
+			};
+			arraySpec: level+ {
+				level: '[' (lengths|(sep*)) ']';
+				sep: ',';
+				lengths: literal.int (',' literal.int)*;
+			};
+		};
+		|ternary: {
+			|cond: (expr '?' expr ':') ;
+		};
+		|binary: {
+			|ifNull: expr '??' expr;
+			|bXor: expr '^' expr;
+			|bOr: expr '|' expr;
+			|bAnd: expr '&' expr; 
+			|lOr: expr '||' expr;
+			|lAnd: expr '&&' expr;
+			|notEq: expr '!=' expr;
+			|eq: expr '==' expr;
+			|assign: expr '=' expr;
+			|as: expr 'as' typeName;
+			|is: expr 'is' typeName;
+			|gt: expr '>' expr;
+			|lt: expr '<' expr;
+			|eqGt: expr '>=' expr;
+			|eqLt: expr '<=' expr;
+			|shr: expr '>>' expr;
+			|shl: expr '<<' expr;
+			|sub: expr '-' expr;
+			|sum: expr '+' expr;
+			|rem: expr '%' expr;
+			|div: expr '/' expr;
+			|mul: expr '*' expr;
+			|assignShr: expr '>>=' expr;
+			|assignShl: expr '<<=' expr;
+			|assignXor: expr '^=' expr;
+			|assignOr: expr '|=' expr;
+			|assignAnd: expr '&=' expr; 
+			|assignRem: expr '%=' expr;
+			|assignDiv: expr '/=' expr;
+			|assignMul: expr '*=' expr;
+			|assignSub: expr '-=' expr;
+			|assignSum: expr '+=' expr ;
+		};
+		|unary: {
+			|postDec: expr '--';
+			|postInc: expr '++';
+			|reference: '&' expr;
+			|invert: '~' expr;
+			|not: '!' expr;
+			|preDec: '--' expr;
+			|preInc: '++' expr;
+			|signNeg: '-' expr;
+			|signPos: '+' expr;
+			|pointer: '*' expr;
+		};
+		|index: expr '[' call.args ']';
+		|call: expr '(' args ')' {
+			args: (item (',' item)*)?;
+			item: (identifier ':')? expr;
+		};
+		|member: memberName;
+	};
+	
+	kw {
+		namespace: 'namespace';
+		using: 'using';
+		delegate: 'delegate';
+		class: 'class';
+		struct: 'struct';
+		interface: 'interface';
+		enum: 'enum';
+		out: 'out';
+		ref: 'ref';
+		event: 'event';
+		remove: 'remove';
+		add: 'add';
+		this: 'this';
+		get: 'get';
+		set: 'set';
+		params: 'params';
+	}
+	
+	builtinTypeName: {
+		|integer: {
+			|sbyte: 'sbyte';
+			|int: 'int';
+			|short: 'short';
+			|long: 'long';
+			|byte: 'byte';
+			|uint: 'uint';
+			|ushort: 'ushort';
+			|ulong: 'ulong';
+		};
+		|real: {
+			|single: 'float';
+			|double: 'double';
+			|decimal: 'decimal';
+		};
+		|other: {
+			|char: 'char';
+			|bool: 'bool';
+			|void: 'void';
+		};
+	};
+}

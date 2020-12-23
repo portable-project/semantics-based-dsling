@@ -1,0 +1,25 @@
+
+!default {
+	color: #000000;
+	background: #ffffff;
+}
+
+/*
+	depthSpec, limiters, kw.*
+*/
+depthSpec, limiters, 
+directive, color, background, face, face, as, open, style, style, default_ {
+	color: #0000ff;
+}
+
+colorValue, italic, bold, underline {
+	color: #888800;
+}
+
+root, specifier, name, any, relative, complexName {
+	color: #888888;
+}
+
+commentsAndSpaces {
+	color: #008800;
+}

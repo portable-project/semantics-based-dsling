@@ -1,0 +1,50 @@
+
+!default {
+	color: #000000;
+	background: #ffffff;
+}
+
+/*
+braces {
+	background: #00ffff;
+}
+*/
+
+/* let, if, then, else, switch, while, do, while, break, */
+minimal, stub, proc,
+architecture, environment, incomplete, final,
+import, subset, 
+registers, storage, view, hidden, 
+memory, range, cell, endianess, bigEndian, littleEndian, granularity,
+instructions, encode, field, immediate, register, sequence, instruction, cases, alternatives,
+mnemonics, mnemonic, format, formats, takes, of, is, for, when, and, or, xor, not, as, yes, no {
+	color: #0000ff;
+}
+
+dquotted, squotted, mnemonicFormatStringDef, word, separator {
+	color: #bb0000;
+}
+
+number {
+	color: #008B8B;
+}
+
+hex {
+	color: #8B8B00;
+}
+
+bits {
+	color: #8B008B;
+}
+
+name, complexName {
+	color: #888888;
+}
+
+commentsAndSpaces {
+	color: #008800;
+}
+
+arg {
+	color: #000000;
+}

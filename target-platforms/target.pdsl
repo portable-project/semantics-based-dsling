@@ -1,0 +1,334 @@
+[OmitPattern(commentsAndSpaces)]
+[RootRule(definitions)]
+TargetDefinition { 
+	
+	/* Basics : */
+
+/*
+	VSPlugin pre-build
+
+	.\Portable.Parser.TextModelGenerator\bin\Debug\Portable.Parser.TextModelGenerator.exe .\Portable.Parser\Definitions\target.pdsl .\Portable.TargetPlatform\Definition\TargetTextModel.cs Portable.TargetPlatform.Definition
+
+*/
+		
+	commentsAndSpaces: "([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*";
+
+	number: "[0-9]+";
+	hex: "0x[a-fA-F0-9]+";
+	name: "[a-zA-Z_][a-zA-Z_0-9\-]*";
+	bits: "[01 ]+";
+	complexName: name ('.' name)*;
+	complexNameParts: part ('.' part)* { part: name?; };
+	str: {
+		|#dquotted: "\"[^\"\\]*(?:\\.[^\"\\]*)*\"";
+		|#squotted: "'[^']*'";
+	};
+	boolean: {
+		|yes: 'true'| 'yes';
+		|no: 'false'| 'no';
+	};
+
+	definitions: #definition*;
+	definition: {
+		|architectureDef: definitionKind kw.architecture name '{' archDef '}';
+		|environmentDef: definitionKind kw.environment name '{' envDef '}';
+	};
+
+	definitionKind: variant? {
+		variant: {
+			|incomplete: kw.incomplete;
+			|final: kw.final;
+		};
+	};
+
+	/* Hardware architecture definition : */
+	
+	archDef: (#archAspect|#archExtension)*;
+
+	archExtension: { 
+		|import: kw.import complexName ';';
+		|subset: kw.subset name '{' archDef '}';
+	};
+
+	archAspect: {
+		|registersDef: kw.registers ':' (#registersAspectDef ';')* {
+			registersAspectDef: {
+				|storageDef: kw.storage name '[' number ']';
+				|viewDef: option kw.view name '=' windows {
+					option: hiddenOption?;
+					hiddenOption: kw.hidden;
+					windows: storageSpec | ('{' storageSpec (',' storageSpec)* '}');
+					storageSpec: name ('[' number ('..' number)? ']')?;
+				};
+			};
+		 };
+		|memoryDef: kw.memory ':' #memoryAspectDef* {
+			memoryAspectDef: {
+				|rangeDef: kw.range name '[' hex '..' hex ']' '{' properties '}' {
+					properties: cellSizeDef endianessDef granularityDef {
+						cellSizeDef: kw.cell '=' number ';';
+						endianessDef: kw.endianess '=' kind ';' {
+							kind: {
+								|big: kw.bigEndian;
+								|little: kw.littleEndian;
+							};
+						};
+						granularityDef: kw.granularity '=' number ';';
+					};
+				};
+			};
+		 };
+		|instructionsDef: kw.instructions ':' (#instructionsAspectDef ';')*;
+		|mnemonicsDef: kw.mnemonics ':' (#mnemonicsAspectDef ';')*;
+	};
+	
+	instructionsAspectDef: {
+		|fieldEncoding: kw.encode name kw.field '=' description {
+			description: {
+				|immediateFDesc: kw.immediate '[' number ']' kind? {
+					kind: {
+						|data: 'data';
+						|offset: 'offset';
+						|segment: 'segment';
+						|displacement: 'displacement';
+					};
+				};
+				|registerFDesc: kw.register '{' value (',' value)+ '}' {
+					value: name '=' bits;
+					/* value: (name|('_'+)) '=' bits; */
+				};
+				|casesFDesc: kw.cases '{' value (',' value)+ '}' {
+					value: name '=' bits;
+				};
+			};
+		 };
+		|fieldsGroup: kw.encode name kw.sequence '=' (fixedFields | alternativeFieldSets) {
+			fixedFields: instructionFieldsSequence;
+			alternativeFieldSets: kw.alternatives '{' fieldSet (',' fieldSet)+ '}';
+			fieldSet: name '=' instructionFieldsSequence;
+		};
+		|instruction: kw.instruction name '=' instructionFieldsSequence instructionPurpose? instructionFunction?;
+	};
+
+	instructionFieldsSequence: '{' #instructionField (',' #instructionField)* '}' {
+		instructionField: {
+			|fixedBits: bits;
+			|fixedField: fieldEncodingName '.' fieldValueName;
+			/* TODO
+			|fixedField: fieldEncodingName ('.' fieldValueName)?; 
+			|complexField: fieldEncodingName ('.' fieldValueName)? '(' (subfield (',' subfield)*)? ')' {
+				subfield: fieldEncodingArgName kw.as fieldName;
+			};
+			*/
+			|field: fieldEncodingName kw.as fieldName;
+			|sequence: kw.sequence name;
+		};
+		fieldEncodingName: #name;
+		fieldEncodingArgName: #name; /* name of the subfield inside complex cases field definition */
+		fieldValueName: #name;
+		fieldName: #name;
+	};
+	
+	instructionPurpose: '(' value ')' {
+		value: {
+			|add: 'math:add';
+			|sub: 'math:sub';
+			|rem: 'math:rem';
+			|div: 'math:div';
+			|mul: 'math:mul';
+			|neg: 'math:neg';
+			|and: 'bin:and';
+			|or: 'bin:or';
+			|xor: 'bin:xor';
+			|not: 'bin:not';
+			|jump: 'control:jump';
+			|call: 'control:call';
+			|ret: 'control:ret';
+			|move: 'move:move';
+			|push: 'move:push';
+			|pop: 'move:pop';
+			
+			/* TODO ... not needed? */
+		};
+	};
+
+	instructionFunction: statement.blockStmt {
+		statement: {
+			|varStmt: 'let' placeExpr '=' expr ';';
+			|ifStmt: 'if' expr 'then' statement ('else' statement)?;
+			|whenStmt: 'when' expr 'then' statement ('else' statement)?;
+			|blockStmt: '{' statement* '}';
+			/* |switchStmt:  'switch' expr TODO ; */
+			|whileStmt: 'while' expr 'do' statement;
+			|doStmt: 'do' statement 'while' expr ';';
+			|breakStmt: 'break' ';';
+			|setStmt: placeExpr '=' expr ';';
+		};
+		[RewriteRecursion]
+		expr: {
+			/* 12 */
+			|or: expr '|' expr;
+			/* 11 */
+			|xor: expr '^' expr;
+			/* 10 */
+			|and: expr '&' expr;
+			/* 9 */
+			|p9: expr op9 expr { op9: { 
+				|eq: '=='; 
+				|neq: '!='; 
+			}; };
+			/* 8 */
+			|p8: expr op8 expr { op8: { 
+				|leq: '<=';
+				|geq: '>=';
+				|lt: '<';
+				|gt: '>';
+			}; };
+			/* 7 */
+			|p7: expr op7 expr { op7: { 
+				|shl: '<<' ;
+				|shr: '>>' ;
+			}; };
+			/* 6 */
+			|p6: expr op6 expr { op6: { 
+				|sum: '+';
+				|sub: '-';
+			}; };
+			/* 5 */
+			|p5: expr op5 expr { op5: { 
+				|mul: '*';
+				|div: '/';
+				|rem: '%';
+			}; };
+			/* 3 */
+			|mem: '*' expr;
+			|neg: '-' expr;
+			|not: '~' expr;
+			/* 2 */
+			|braces: '(' expr ')';
+			/* 1 */
+			|place: #placeExpr;
+			|value: hex|bits;
+		};
+		placeExpr: name; /* field or register or variable */
+	};
+	
+	mnemonicsAspectDef: {
+		|formatDef: kw.format name (single|multi) {
+			single: kw.is mnemonicFormatStringDef;
+			multi: kw.of mnemonicFormatDef (',' mnemonicFormatDef)*;
+		};
+		|mnemonicDef: kw.mnemonic name format (',' format)*  {
+			format: insnName? mnemonicFormatDef;
+			insnName: kw.for name;
+		};
+	};
+	
+	mnemonicFormatDef: arguments format? constraint? {
+		arguments: '(' (any|list) ')' {
+			any: '...';
+			list: (argName (',' argName)*)? ;
+			argName: {
+				|fixedRegister: kw.registers '.' name;
+				|instructionField: name;
+			};
+		};
+		format: mnemonicFormatStringDef | mnemonicFormatName {
+			mnemonicFormatName: #name;
+		};
+		constraint: kw.when cexpr {
+			[RewriteRecursion]
+			cexpr: {
+                |or: cexpr kw.or_ cexpr;
+                |and: cexpr kw.and_ cexpr;
+                |xor: cexpr kw.xor_ cexpr;
+                |not: kw.not_ cexpr;
+                |group: '(' cexpr ')';
+                |symbolName: #complexNameParts;
+            };           
+		};
+	};
+	
+	mnemonicFormatStringDef: '"' entry* '"' {
+		entry: {
+			|word: "\w+";
+			|separator: '['|']'|','|'.'|'*'|'+'|':';
+			|arg: '{' number '}' ;
+		};
+	};
+	
+
+	/* Software environment definition : */
+
+	envDef: (#envAspect)*;
+	
+	envAspect: {
+		|#methodStubDef: envMethodStubImpl;
+	};
+	
+	envMethodStubImpl: kw.minimal kw.stub kw.proc '(' stubArgName ')' '{' stubBodyItem+ '}' {
+		stubArgName: #name;
+		insnName: #name;
+		stubBodyItem: labelEntry|instructionEntry {
+			labelEntry: name ':';
+			instructionEntry: insnName (insnArg (',' insnArg)*)? ';';
+			insnArg: number|hex|name;
+		};
+	};
+	
+	/* Keywords : */
+	
+	kw: ' ' {
+		import: 'import';
+		subset: 'subset';
+		registers: 'registers';
+		storage: 'storage';
+		view: 'view';
+		hidden: 'hidden';
+		memory: 'memory';
+		range: 'range';
+		cell: 'cell';
+		endianess: 'endianess';
+		bigEndian: 'big-endian';
+		littleEndian: 'little-endian';
+		granularity: 'granularity';
+		instructions: 'instructions';
+		mnemonics: 'mnemonics';
+		encode: 'encode';
+		field: 'field';
+		immediate: 'immediate';
+		register: 'register';
+		instruction: 'instruction';
+		sequence: 'sequence';
+		let: 'let';
+		if: 'if';
+		then: 'then';
+		else: 'else';
+		for: 'for';
+		switch: 'switch';
+		do: 'do';
+		while: 'while';
+		break: 'break';
+		mnemonic: 'mnemonic';
+		as: 'as';
+		architecture: 'architecture';
+		environment: 'environment';
+		incomplete: 'incomplete';
+		final: 'final';
+		cases: 'cases';
+		alternatives:  'alternatives';
+		minimal: 'minimal';
+		stub: 'stub';
+		proc: 'proc';
+		format: 'format';
+		formats: 'formats';
+		is: 'is';
+		of: 'of';
+		or_: 'or';
+		and_: 'and';
+		not_: 'not';
+		xor_: 'xor';
+		when: 'when';
+		takes: 'takes';
+	};
+}

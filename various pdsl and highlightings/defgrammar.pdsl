@@ -1,0 +1,73 @@
+﻿[OmitPattern(commentsAndSpaces)]
+[RootRule(ruleSet.body)]
+GrammarDefinition { 
+	
+	commentsAndSpaces: "([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*";
+
+	name: "[a-zA-Z_][a-zA-Z_0-9]*";
+	number: "[0-9]+";
+	hex: "0x[a-fA-F0-9]+";
+	complexName: name ('.' name)*;
+
+	attributes: attributesCollection* {
+		attributeUsageArgList: ('(' expr (',' expr)* ')')?;
+		attributeUsage: complexName attributeUsageArgList;
+		attributesCollection: '[' attributeUsage (',' attributeUsage)* ']';
+	};
+
+	expr: {
+		|#complex: {
+			|sequence: item item+ { 
+				item: alternatives | repeat | simple;
+			 };
+			|alternatives: item ('|' item)+ { 
+				item: repeat | simple;
+			 };
+			|repeat: simple quantor {
+				quantor: '*' | '+' | '?' | ('{' qnumbers '}');
+				qnumbers: {
+					|full: number ',' number;
+					|max: ',' number;
+					|min: number ',';
+					|exact: number;
+				};
+			 };
+		 };
+		 |#simple: {
+			|string: "\"[^\"\\]*(?:\\.[^\"\\]*)*\"";
+			|chars: "'[^']*'";
+			|anyChar: '.';
+			|charCode: hex;
+			|group: '(' expr ')';
+			|check: '&' simple;
+			|checkNot: '!' simple;
+			|usage: flag complexName args {
+				flag: ('%' | '#')?;
+				args: ('<' (expr (',' expr)*)? '>')?;
+			 };
+		 };
+	};
+
+	ruleDef: attributes flag name ruleDefArgs ':' ruleBody ';' {
+		flag: ('#')?;
+		ruleDefArg: flag name;
+		ruleDefArgs: ('<' (ruleDefArg (',' ruleDefArg)*)? '>')?;
+		ruleBody: {
+			|extendable: '{' alternative* '}' {
+				alternative: (priority '|' ruleDef);
+				priority: number?;
+			 };
+			|explicit: expr subRules {
+				subRules: ('{' ruleDef* '}')?;
+			 };
+		};
+	};
+
+	ruleSet: attributes complexName '{' body '}' {
+		body: item*;
+		item: ruleDef | ruleSet | ruleSetImport;
+		ruleSetImport: attributes alias complexName ';' {
+			alias: (name '=')?;
+		};
+	};
+}

@@ -1,0 +1,46 @@
+
+!default {
+	color: #000000;
+	background: #ffffff;
+}
+
+/*
+braces {
+	background: #00ffff;
+}
+*/
+
+/* attributesCollection,
+attributeUsageArgList,
+subRules,
+ruleSet,
+ruleSetImport,
+ruleDef,
+extendable, */
+alternative, 
+alternatives,
+group,
+check,
+checkNot,
+flag,
+quantor,
+qnumber 
+{
+	color: #0000ff;
+}
+
+string, chars, charCode, anyChar {
+	color: #bb0000;
+}
+
+number {
+	color: #008B8B;
+}
+
+name, complexName {
+	color: #888888;
+}
+
+commentsAndSpaces {
+	color: #008800;
+}
