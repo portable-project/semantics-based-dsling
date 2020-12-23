@@ -1,0 +1,175 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="PortableParserPlainGrammar" targetNamespace="PortableParserPlainGrammar" elementFormDefault="qualified"
+    xmlns="PortableParserPlainGrammar"
+    xmlns:tns="PortableParserPlainGrammar"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="Grammar" type="GrammarType">
+    <xs:key name="RuleName">
+      <xs:selector xpath="./tns:Rule" />
+      <xs:field xpath="@Name" />
+    </xs:key>
+    <xs:keyref name="CallRuleTargetName" refer="RuleName">
+      <xs:selector xpath=".//tns:Call" />
+      <xs:field xpath="@RuleName" />
+    </xs:keyref>
+    <xs:keyref name="GrammarStartRuleName" refer="RuleName">
+      <xs:selector xpath="." />
+      <xs:field xpath="@StartRuleName" />
+    </xs:keyref>
+    <xs:keyref name="GrammarSkipRuleName" refer="RuleName">
+      <xs:selector xpath="." />
+      <xs:field xpath="@SkipRuleName" />
+    </xs:keyref>
+  </xs:element>
+
+  <xs:complexType name="GrammarType">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="Rule" type="RuleType" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="StartRuleName" type="string" use="required" />
+    <xs:attribute name="SkipRuleName" type="string" use="optional" />
+    <xs:attribute name="Name" type="string" use="required" />
+  </xs:complexType>
+    
+  <xs:complexType name="RuleType">
+    <xs:sequence>
+      <!--<xs:group ref="ExpressionGroup" minOccurs="1" maxOccurs="1" />-->
+      <xs:choice>
+        <xs:element name="Call" type="ExprCallType" />
+        <xs:element name="Chars" type="ExprCharsType" />
+        <xs:element name="Regex" type="ExprPatternType" />
+        <xs:element name="Check" type="ExprCheckType" />
+        <xs:element name="CheckNot" type="ExprCheckNotType" />
+        <xs:element name="Seq" type="ExprSequenceType" />
+        <xs:element name="Alts" type="ExprAlternativesType" />
+        <xs:element name="Number" type="ExprNumberType" />
+      </xs:choice>
+    </xs:sequence>
+    <xs:attribute name="Name" type="string" use="required" />
+  </xs:complexType>
+
+  <!--<xs:group name="ExpressionGroup">
+    <xs:choice>
+      <xs:element name="Call" type="ExprCallType" />
+      <xs:element name="Chars" type="ExprCharsType" />
+      <xs:element name="Regex" type="ExprPatternType" />
+      <xs:element name="Check" type="ExprCheckType" />
+      <xs:element name="CheckNot" type="ExprCheckNotType" />
+      <xs:element name="Seq" type="ExprSequenceType" />
+      <xs:element name="Alts" type="ExprAlternativesType" />
+      <xs:element name="Number" type="ExprNumberType" />
+    </xs:choice>
+  </xs:group>-->
+
+  <xs:complexType name="ExpressionType" abstract="true">
+  </xs:complexType>
+
+  <xs:complexType name="ExprUnaryType" abstract="true">
+    <xs:complexContent>
+      <xs:extension base="ExpressionType">
+        <!--<xs:group ref="ExpressionGroup" minOccurs="1" maxOccurs="1" />-->
+        <xs:choice minOccurs="1" maxOccurs="1">
+          <xs:element name="Call" type="ExprCallType" />
+          <xs:element name="Chars" type="ExprCharsType" />
+          <xs:element name="Regex" type="ExprPatternType" />
+          <xs:element name="Check" type="ExprCheckType" />
+          <xs:element name="CheckNot" type="ExprCheckNotType" />
+          <xs:element name="Seq" type="ExprSequenceType" />
+          <xs:element name="Alts" type="ExprAlternativesType" />
+          <xs:element name="Number" type="ExprNumberType" />
+        </xs:choice>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprGroupType" abstract="true">
+    <xs:complexContent>
+      <xs:extension base="ExpressionType">
+        <xs:sequence>
+          <!--<xs:group ref="ExpressionGroup" minOccurs="1" maxOccurs="unbounded" />-->
+          <xs:choice minOccurs="1" maxOccurs="unbounded">
+            <xs:element name="Call" type="ExprCallType" />
+            <xs:element name="Chars" type="ExprCharsType" />
+            <xs:element name="Regex" type="ExprPatternType" />
+            <xs:element name="Check" type="ExprCheckType" />
+            <xs:element name="CheckNot" type="ExprCheckNotType" />
+            <xs:element name="Seq" type="ExprSequenceType" />
+            <xs:element name="Alts" type="ExprAlternativesType" />
+            <xs:element name="Number" type="ExprNumberType" />
+          </xs:choice>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprCallType">
+    <xs:complexContent>
+      <xs:extension base="ExpressionType">
+        <xs:attribute name="RuleName" type="string" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprCharsType">
+    <xs:complexContent>
+      <xs:extension base="ExpressionType">
+        <xs:attribute name="String" type="string" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprPatternType">
+    <xs:complexContent>
+      <xs:extension base="ExpressionType">
+        <xs:attribute name="Pattern" type="string" use="required" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprCheckType">
+    <xs:complexContent>
+      <xs:extension base="ExprUnaryType" />
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprCheckNotType">
+    <xs:complexContent>
+      <xs:extension base="ExprUnaryType" />
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprSequenceType">
+    <xs:complexContent>
+      <xs:extension base="ExprGroupType" />
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprAlternativesType">
+    <xs:complexContent>
+      <xs:extension base="ExprGroupType" />
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="ExprNumberType">
+    <xs:complexContent>
+      <xs:extension base="ExprUnaryType">
+        <xs:attribute name="Min" type="uint" use="optional" />
+        <xs:attribute name="Max" type="uint" use="optional" />
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:simpleType name="string">
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="uint">
+    <xs:restriction base="xs:unsignedInt" />
+  </xs:simpleType>
+
+</xs:schema>

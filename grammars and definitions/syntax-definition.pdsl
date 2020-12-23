@@ -1,0 +1,83 @@
+﻿[root(definition)]
+[skip(commentsAndSpaces)]
+pdsl {
+	/* Portable Domain-Specific Language */
+
+	/* keep it in sync with definition-grammar.xml */
+
+	definition: ruleSet.body;
+	
+	ruleSet: attrs complexName '{' imports body '}' {
+		body: item*;
+		item: rule | ruleSet;
+	};
+
+	imports: ruleSetImport*;
+
+	ruleSetImport: attrs alias complexName ';' {
+		alias: (name '=')?;
+	};
+
+	rule: attrs complexName args ':' body ';' {
+		args: ('<' (name (',' name)*)? '>')?;
+		body: {
+			|simple: expr ('{' imports rule* '}')?;
+			|cases: '{' imports literal* entry* rule* '}' {
+				literal: '|' name;
+				entry: priority? '|' rule;
+				priority: num|name;
+			};
+		};
+	};
+	
+	commentsAndSpaces: "([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*";
+
+	name: "[a-zA-Z_][a-zA-Z_0-9]*";
+	number: "[0-9]+";
+	hex: "0x[a-fA-F0-9]+";
+	complexName: name ('.' name)*;
+
+	attrs: collection* {
+		usageArgList: ('(' expr (',' expr)* ')')?;
+		usage: complexName usageArgList;
+		collection: '[' usage (',' usage)* ']';
+	};
+
+	expr: {
+		|complex: {
+			|sequence: item item+ { 
+				item: alternatives | repeat | simple;
+			};
+			|alternatives: item ('|' item)+ { 
+				item: repeat | simple;
+			};
+			|repeat: simple quantor {
+				quantor: '*' | '+' | '?' | ('{' qnumbers '}');
+				qnumbers: {
+					|full: number ',' number;
+					|max: ',' number;
+					|min: number ',';
+					|exact: number;
+			};
+		};
+		|simple: {
+			|string: "\"[^\"\\]*(?:\\.[^\"\\]*)*\"";
+			|chars: "'[^']*'";
+			|anyChar: '.';
+			|charCode: hex;
+			|group: '(' expr ')';
+			|check: '&' simple;
+			|checkNot: '!' simple;
+			|usage: fieldSpec? flag complexName args {
+				fieldSpec: name kind {
+					kind: {
+						|collection: '+=';
+						|solitary: '=';
+					};
+				};
+				flag: ('%' | '#')?;
+				args: ('<' (expr (',' expr)*)? '>')?;
+			};
+		};
+	};
+}

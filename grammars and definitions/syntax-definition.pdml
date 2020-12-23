@@ -1,0 +1,93 @@
+﻿
+syntax {
+
+	expr(r: scope.rule) {
+		rule = r;
+		
+		|quantor(e: pdsl.expr.complex.repeat) { {
+			firstWords = this.expr.firstWords;
+			isEphemeral = false;
+			canBeEmpty = this.min < 1 || this.expr.canBeEmpty;
+			min = from n in (
+					e.quantor.qnumbers.min.number, 
+					e.quantor.qnumbers.exact.number, 
+					e.quantor.qnumbers.max != null ? 0 : null,
+					e.quantor.qnumbers.full.number[0],
+					e.quantor.@string == "*" ? 0 : null,
+					e.quantor.@string == "+" ? 1 : null,
+					e.quantor.@string == "?" ? 0 : null,
+				) first n where n != null;
+			max = from n in (
+					e.quantor.qnumbers.max.number, 
+					e.quantor.qnumbers.exact.number, 
+					e.quantor.qnumbers.min != null ? int.MaxValue : null,
+					e.quantor.qnumbers.full.number[1],
+					e.quantor.@string == "*" ? int.MaxValue : null,
+					e.quantor.@string == "+" ? int.MaxValue : null,
+					e.quantor.@string == "?" ? 1 : null,
+				) first n where n != null;
+			expr = expr(r, e.simple);
+		}
+		|sequence(e: pdsl.expr.complex.sequence) {
+			firstWords = from cce in ( from ce in this.items where !ce.isEphemeral take while ce.canBeEmpty
+								 union from ce in this.items first ce where !ce.canBeEmpty )
+						 select many cce.firstWords;
+			isEphemeral = false;
+			canBeEmpty = any e in this.items has !e.canBeEmpty;
+			items = from ce in e.item select expr(r, ce);
+		}
+		|alternatives(e: pdsl.expr.complex.alternatives) {
+			firstWords = from ce in this.branches select many ce.firstWords;
+			isEphemeral = false;
+			canBeEmpty = count(this.branches) == 0 || (any e in this.branches has e.canBeEmpty);
+			branches = from ce in e.item select expr(r, ce);
+		}
+		|check(e: pdsl.expr.simple.check) {
+			firstWords = null;
+			isEphemeral = true;
+			canBeEmpty = true;
+			expr = expr(r, e);
+		}
+		|checkNot(e: pdsl.expr.simple.checkNot) {
+			firstWords = null;
+			isEphemeral = true;
+			canBeEmpty = true;
+			expr = expr(r, e);
+		}
+		|call(c: pdsl.expr.simple.usage) {
+			firstWords = target.expr.firstWords;
+			isEphemeral = false;
+			canBeEmpty = target.expr.canBeEmpty;
+			targetName = c.complexName;
+			target: rule;
+		}
+		|chars(c: pdsl.expr.simple.chars) {
+			firstWords = setOf(p.@string);
+			isEphemeral = false;
+			canBeEmpty = this.string.Length > 0;
+			string = c.@string;
+		}
+		|pattern(p: pdsl.expr.simple.string) from {
+			firstWords = null;
+			isEphemeral = false;
+			canBeEmpty = this.string.Length > 0;
+			string = p.@string;
+		}
+	};
+
+	scope(s: scope) {
+		parent = s;
+
+		|namespace(rs: pdsl.ruleSet) from (null, rs) in pdsl.definition.body.item.ruleSet {
+			name = rs.complexName;
+			namespaces = from crs in rs.body.item.ruleSet select namespace(this, crs);
+			rules = from r in rs.body.item.rule select rule(this, r);
+		}
+		|rule(r: pdsl.rule) from (null, r) in pdsl.definition.body.item.rule {
+			name = r.complexName;
+			rules = from cr in r.body.simple.rule select rule(this, cr);
+			expr = syntax.expr(this, r.body.simple.expr);
+		}
+	};
+
+}

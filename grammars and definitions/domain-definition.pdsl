@@ -1,0 +1,149 @@
+﻿
+common {
+	name: "[a-zA-Z_][a-zA-Z_0-9]*";
+	complexName: name ('.' name)*;
+	commentsAndSpaces: "([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*";
+
+	
+	ESCAPEES: '\\\\'		// Backslash
+			| '\\0'		// Unicode character 0
+			| '\\a'		// Alert (character 7)
+			| '\\b'		// Backspace (character 8)
+			| '\\f'		// Form feed (character 12)
+			| '\\n'		// New line (character 10)
+			| '\\r'		// Carriage return (character 13)
+			| '\\t'		// Horizontal tab (character 9)
+			| '\\v'		// Vertical quote (character 11)
+			| '\\u' [0-9a-fA-F]{4}   // Unicode code point
+			| '\\u' [0-9a-fA-F]{8} ; // Unicode code point
+
+	dquotted -> '"' ( [^"] | '\\"' | ESCAPEES )* '"';
+	squotted ->	'\'' ( [^'] | '\'' | ESCAPEES )* '\'';
+};
+
+[root(scope)]
+[skip(commentsAndSpaces)]
+pddl {
+	/* Portable Domain Definition Language */
+
+	common;
+
+	scope: name '{' (types += value)* '}';
+
+	value: name ':' typeRef|((typeParent = complexName)? typeDef);
+
+	typeName: complexName|builtin {
+		builtin: {
+			|bool
+			|char
+			|byte
+			|sbyte
+			|short
+			|ushort
+			|int
+			|uint
+			|long
+			|ulong
+			|string
+
+			|integer
+			|decimal
+		};
+	};
+
+	typeRef: typeName array? {
+		array: '[' ']';
+	};
+
+	typeDef: '{' members cases '}' {
+		members: (member ';')*;
+		member: {
+			|explicit: value;
+			|implicit: typeRef;
+		};
+		cases: ('|' case)*;
+		case: name typeDef?;
+	};
+
+}
+
+[root(query)]
+[skip(commentsAndSpaces)]
+pdql {
+	/* Portable Domain Querying Language */
+
+	common;
+
+	nameSpec: {
+		|template: (('*'|'?'|'.'|[a-zA-Z_0-9])+ );
+		|exact: squotted;
+		|regex: dquotted;
+	};
+
+	query: entity {
+		entity: {
+			|or: entity kw.or entity;
+			|and: entity kw.and entity;
+			|not: kw.not (group|related|spec);
+			|group: '(' entity ')';
+			|related: (group|spec) kw.is relation.subexpr;
+			|spec: (kind=nameSpec)? nameSpec;
+
+			subexpr: not|group|related|spec;
+		};
+		relation: {
+			|or: relation kw.or relation;
+			|and: relation kw.and relation;
+			|not: kw.not (group|spec);
+			|group: '(' relation ')';
+			|spec: nameSpec kind entity.subexpr;
+			
+			kind: 'of'|'in'|'on'|'to'|'for'|'from'|'@';
+			subexpr: not|group|spec;
+		};
+	};
+
+	kw: {
+		or: 'or'|'|'|'||';
+		and: 'and'|'&'|'&&';
+		not: '!'|'not';
+		is: ':'|'is';
+	};
+}
+
+pdml {
+	/* Portable Domain Mapping Language */
+	
+	common;
+
+	/*
+		type ( 
+			name = td.identifier,
+			visibility = td.memberModifiers.access.
+		) @ td = classTypeDef
+
+
+		classTypeDef$t/
+
+
+	fieldsSpec: '(' name (',' item) ');
+	target: name '{' fieldset '}';
+	fieldset: '*'|(item (',' item)*) {
+		item: (name '=')? expr;
+	};
+	*/
+
+	scope: name '{' (maps += typeMap)* '}';
+
+	typeMap: name args? setExpr? '{' members cases '}' {
+		args: '(' arg ')';
+		arg: name ':' pddl.typeRef;
+		members: (member ';')*;
+		member: name '=' scalarExpr; /* implicit mapping for explicit member with typeDef */
+		cases: ('|' typeMap)*;
+	};
+
+	scalarExpr: "todo" ;
+	setExpr: "todo" ;
+}
+

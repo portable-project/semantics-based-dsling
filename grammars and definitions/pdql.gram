@@ -1,0 +1,199 @@
+﻿grammar Pdql
+{
+	options
+	{
+		Axiom = "query";
+		Separator = "SEPARATOR";
+	}
+	terminals
+	{
+		// A.1.1 Line terminators
+		NEW_LINE		-> U+000D /* CR */
+						|  U+000A /* LF */
+						|  U+000D U+000A /* CR LF */
+						|  U+0085 // Next line character
+						|  U+2028 // Line separator character
+						|  U+2029 ; //Paragraph separator character (U+2029)
+
+		WHITE_SPACE		-> uc{Zs} | U+0009 | U+000B | U+000C ;
+		COMMENT_LINE	-> '//' (.* - (.* NEW_LINE .*)) ;
+		COMMENT_BLOCK	-> '/*' (.* - (.* '*/' .*)) '*/' ;
+		SEPARATOR		-> (NEW_LINE | WHITE_SPACE | COMMENT_LINE | COMMENT_BLOCK)+;
+
+		ESCAPEES-> '\\\\'		// Backslash
+				| '\\0'		// Unicode character 0
+				| '\\a'		// Alert (character 7)
+				| '\\b'		// Backspace (character 8)
+				| '\\f'		// Form feed (character 12)
+				| '\\n'		// New line (character 10)
+				| '\\r'		// Carriage return (character 13)
+				| '\\t'		// Horizontal tab (character 9)
+				| '\\v'		// Vertical quote (character 11)
+				| '\\u' [0-9a-fA-F]{4}   // Unicode code point
+				| '\\u' [0-9a-fA-F]{8} ; // Unicode code point
+
+
+		name	-> [a-zA-Z_] [a-zA-Z0-9_]* ;
+		
+		dquotted -> '"' ( [^"] | '\\"' | ESCAPEES )* '"';
+		squotted ->	'\'' ( [^'] | '\'' | ESCAPEES )* '\'';
+
+		typeBuiltin -> 'int'|'long'|'string'|'bool'|'real';
+		
+		dec		-> [0-9]+ ;
+		real	-> ('0' | [1-9] [0-9]*)? '.' ('0' | [1-9] [0-9]*) ([eE] ('+'|'-')? ('0' | [1-9] [0-9]*))? [FfDdMm]?
+				|  ('0' | [1-9] [0-9]*) ([eE] ('+'|'-')? ('0' | [1-9] [0-9]*)) [FfDdMm]?
+				|  ('0' | [1-9] [0-9]*) [FfDdMm] ;
+
+		templateString -> (('*'|'?'|'.'|[a-zA-Z_0-9])+ );
+		
+		or	-> 'or'|'|'|'||';
+		and	-> 'and'|'&'|'&&';
+		not	-> '!'|'not';
+		is	-> ':'|'is';
+	
+		// kind -> 'of'|'in'|'on'|'to'|'for'|'from'|'@';
+	}
+	rules
+	{
+		identifier -> name;
+		
+		conditional_expression		-> null_coalescing_expression | null_coalescing_expression '?' expression ':' expression;
+		null_coalescing_expression	-> conditional_or_expression  | conditional_or_expression '??' null_coalescing_expression;
+		conditional_and_expression	-> inclusive_or_expression    | conditional_and_expression '&&' inclusive_or_expression;
+		conditional_or_expression	-> conditional_and_expression | conditional_or_expression '||' conditional_and_expression;
+		and_expression				-> equality_expression	      | and_expression '&' equality_expression;
+		exclusive_or_expression		-> and_expression    | exclusive_or_expression '^' and_expression    ;
+		inclusive_or_expression		-> exclusive_or_expression    | inclusive_or_expression '|' exclusive_or_expression    ;
+		relational_expression		-> shift_expression
+									| relational_expression '<' shift_expression
+									| relational_expression '>' shift_expression
+									| relational_expression '<=' shift_expression
+									| relational_expression '>=' shift_expression
+									| relational_expression 'is' type
+									| relational_expression 'as' type;
+		equality_expression			-> relational_expression
+									| equality_expression '==' relational_expression
+									| equality_expression '!=' relational_expression;
+		shift_expression			-> additive_expression
+									| shift_expression '<<' additive_expression
+									| shift_expression right_shift additive_expression;
+		multiplicative_expression	-> unary_expression
+									| multiplicative_expression '*' unary_expression
+									| multiplicative_expression '/' unary_expression
+									| multiplicative_expression '%' unary_expression;
+
+		additive_expression			-> multiplicative_expression
+									| additive_expression '+' multiplicative_expression
+									| additive_expression '-' multiplicative_expression;
+		unary_expression			-> primary_expression
+									| null_conditional_expression
+									| '+' unary_expression
+									| '-' unary_expression
+									| '!' unary_expression
+									| '~' unary_expression
+									| pre_increment_expression
+									| pre_decrement_expression
+									| cast_expression
+									| await_expression
+									| unary_expression_unsafe;
+
+		named_entity			-> simple_name | named_entity_target '.' identifier type_argument_list?;
+		named_entity_target		-> 'this'
+								| 'base'
+								| named_entity 
+								| predefined_type 
+								| qualified_alias_member;
+
+		anonymous_object_creation_expression -> 'new' anonymous_object_initializer;
+		anonymous_object_initializer		 -> '{' member_declarator_list? '}' | '{' member_declarator_list ',' '}' ;
+		member_declarator_list				 ->  member_declarator (',' member_declarator)* ;
+		member_declarator					 -> simple_name
+											 | member_access
+											 | base_access
+											 | null_conditional_member_access
+											 | identifier '=' expression;
+		query -> query_expression；
+
+		query_expression	-> from_clause query_body;
+
+		from_clause			-> 'from' type? identifier 'in' expression;
+
+		query_body			-> query_body_clause* select_or_group_clause query_continuation?;
+		query_body_clause	-> from_clause
+							| let_clause
+							| where_clause
+							| join_clause
+							| join_into_clause
+							| orderby_clause;
+
+		let_clause			-> 'let' identifier '=' expression;
+		where_clause		-> 'where' boolean_expression;
+		join_clause			-> 'join' type? identifier 'in' expression 'on' expression 'equals' expression;
+		join_into_clause	-> 'join' type? identifier 'in' expression 'on' expression 'equals' expression 'into' identifier;
+		orderby_clause		-> 'orderby' ordering (',' ordering)*;
+		ordering			-> expression ordering_direction?;
+		ordering_direction		-> 'ascending'|'descending';
+		select_or_group_clause	-> select_clause|group_clause;
+		select_clause			-> 'select' expression;
+		group_clause			-> 'group' expression 'by' expression;
+		query_continuation		-> 'into' identifier query_body;
+		
+		/*
+		querySetExpr				-> querySetExprCtx|querySetExprChain;
+		queryCtxSource				-> name;
+		
+		querySetExprCtx				-> 'from' queryCaptures 'in' queryCtxToSetTransforms;
+		queryScalarExprCtx			-> 'from' queryCaptures 'in' queryCtxToScalarTransforms;
+		
+		queryCtxToSetTransforms		-> queryCtxSetSource|(queryCtxSetSource (
+			queryCtxToSetMap|queryCtxToSetExpand|queryCtxToSetFilter|queryCtxToOrderAscSet|queryCtxToOrderDescSet|queryCtxToGroups
+		));
+		queryCtxToScalarTransforms	-> queryCtxSetSource (querySetTransformSelectFirst|querySetTransformSelectLast);
+		queryCtxSetSource			-> atom;
+
+		queryCtxToSetMap		-> 'select' expr;
+		queryCtxToSetExpand		-> 'select' 'many' expr;
+		queryCtxToSetFilter		-> 'where' expr;
+		queryCtxToOrderAscSet	-> 'order' 'ascending' 'by' expr+;
+		queryCtxToOrderDescSet	-> 'order' 'descending' 'by' expr+;
+		queryCtxToGroups		-> 'group' 'by' expr;
+
+		querySetExprChain		-> querySetExprCtx 'union' 
+
+		querySetTransformSelectFirst	-> 'select' 'first' expr;
+		querySetTransformSelectLast		-> 'select' 'last' expr;
+		
+		
+		atom	-> name|group;
+		group	-> '('  ')'
+		*/
+	/*
+		nameSpec			-> nameSpecTemplate|nameSpecExact|nameSpecRegex;
+		nameSpecTemplate	-> templateString;
+		nameSpecExact		-> squotted;
+		nameSpecRegex		-> dquotted;
+
+		query-> entity;
+
+		entity-> eor | eand | enot | egroup | erelated | espec;
+			eor-> entity or entity;
+			eand-> entity and entity;
+			enot-> not (egroup|erelated|espec);
+			egroup-> '(' entity ')';
+			erelated-> (egroup|espec) is rsubexpr;
+			espec-> nameSpec? nameSpec;
+
+			esubexpr-> enot|egroup|erelated|espec;
+		
+		relation-> ror | rand | rnot | rgroup | rspec;
+			ror-> relation or relation;
+			rand-> relation and relation;
+			rnot-> not (rgroup|rspec);
+			rgroup-> '(' relation ')';
+			rspec-> nameSpec kind esubexpr;
+			
+			rsubexpr-> rnot|rgroup|rspec;
+	*/
+	}
+}

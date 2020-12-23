@@ -1,0 +1,84 @@
+grammar Pdml
+{
+	options
+	{
+		Axiom = "scope";
+		Separator = "SEPARATOR";
+	}
+	terminals
+	{
+		// A.1.1 Line terminators
+		NEW_LINE		-> U+000D /* CR */
+						|  U+000A /* LF */
+						|  U+000D U+000A /* CR LF */
+						|  U+0085 // Next line character
+						|  U+2028 // Line separator character
+						|  U+2029 ; //Paragraph separator character (U+2029)
+
+		WHITE_SPACE		-> uc{Zs} | U+0009 | U+000B | U+000C ;
+		COMMENT_LINE	-> '//' (.* - (.* NEW_LINE .*)) ;
+		COMMENT_BLOCK	-> '/*' (.* - (.* '*/' .*)) '*/' ;
+		SEPARATOR		-> (NEW_LINE | WHITE_SPACE | COMMENT_LINE | COMMENT_BLOCK)+;
+
+		ESCAPEES-> '\\\\'		// Backslash
+				| '\\0'		// Unicode character 0
+				| '\\a'		// Alert (character 7)
+				| '\\b'		// Backspace (character 8)
+				| '\\f'		// Form feed (character 12)
+				| '\\n'		// New line (character 10)
+				| '\\r'		// Carriage return (character 13)
+				| '\\t'		// Horizontal tab (character 9)
+				| '\\v'		// Vertical quote (character 11)
+				| '\\u' [0-9a-fA-F]{4}   // Unicode code point
+				| '\\u' [0-9a-fA-F]{8} ; // Unicode code point
+
+
+		name	-> [a-zA-Z_] [a-zA-Z0-9_]* ;
+		
+		dquotted -> '"' ( [^"] | '\\"' | ESCAPEES )* '"';
+		squotted ->	'\'' ( [^'] | '\'' | ESCAPEES )* '\'';
+
+		typeBuiltin -> 'int'|'long'|'string'|'bool'|'real';
+		
+		dec		-> [0-9]+ ;
+
+		templateString -> (('*'|'?'|'.'|[a-zA-Z_0-9])+ );
+		
+		or	-> 'or'|'|'|'||';
+		and	-> 'and'|'&'|'&&';
+		not	-> '!'|'not';
+		is	-> ':'|'is';
+	
+		kind -> 'of'|'in'|'on'|'to'|'for'|'from'|'@';
+	}
+	rules
+	{
+
+		nameSpec			-> nameSpecTemplate|nameSpecExact|nameSpecRegex;
+		nameSpectemplate	-> templateString;
+		nameSpecExact		-> squotted;
+		nameSpecRegex		-> dquotted;
+
+		query-> entity;
+
+		entity-> eor | eand | enot | egroup | erelated | espec;
+			eor-> entity or entity;
+			eand-> entity and entity;
+			enot-> not (egroup|erelated|espec);
+			egroup-> '(' entity ')';
+			erelated-> (egroup|espec) is rsubexpr;
+			espec-> nameSpec? nameSpec;
+
+			esubexpr-> enot|egroup|erelated|espec;
+		
+		relation-> ror | rand | rnot | rgroup | rspec;
+			ror-> relation or relation;
+			rand-> relation and relation;
+			rnot-> not (rgroup|rspec);
+			rgroup-> '(' relation ')';
+			rspec-> nameSpec kind esubexpr;
+			
+			rsubexpr-> rnot|rgroup|rspec;
+
+	}
+}

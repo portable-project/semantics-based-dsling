@@ -1,0 +1,402 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Grammar Name="pdsl" StartRuleName="definition" SkipRuleName="commentsAndSpaces" xmlns="PortableParserPlainGrammar">
+
+  <!-- keep it in sync with definition.pdsl -->
+
+  <Rule Name="definition">
+    <Call RuleName="ruleSet.body"/>
+  </Rule>
+
+  <Rule Name="ruleSet">
+    <Seq>
+      <Call RuleName="attrs"/>
+      <Call RuleName="complexName"/>
+      <Chars String="{" />
+      <Call RuleName="imports"/>
+      <Call RuleName="ruleSet.body"/>
+      <Chars String="}" />
+    </Seq>
+  </Rule>
+  <Rule Name="ruleSet.body">
+    <Number Min="0">
+      <Call RuleName="ruleSet.item"/>
+    </Number>
+  </Rule>
+  <Rule Name="ruleSet.item">
+    <Alts>
+      <Call RuleName="rule"/>
+      <Call RuleName="ruleSet"/>
+    </Alts>
+  </Rule>
+
+  <Rule Name="imports">
+    <Number Min="0">
+      <Call RuleName="ruleSetImport"/>
+    </Number>
+  </Rule>
+
+  <Rule Name="ruleSetImport">
+    <Seq>
+      <Call RuleName="attrs"/>
+      <Call RuleName="ruleSetImport.alias"/>
+      <Call RuleName="complexName"/>
+      <Chars String=";" />
+    </Seq>
+  </Rule>
+  <Rule Name="ruleSetImport.alias">
+    <Number Min="0" Max="1">
+      <Seq>
+        <Call RuleName="name" />
+        <Chars String="=" />
+      </Seq>
+    </Number>
+  </Rule>
+
+  <Rule Name="rule">
+    <Seq>
+      <Call RuleName="attrs" />
+      <Call RuleName="complexName" />
+      <Call RuleName="rule.args" />
+      <Chars String=":" />
+      <Call RuleName="rule.body" />
+    </Seq>
+  </Rule>
+  <Rule Name="rule.args">
+    <Number Min="0" Max="1">
+      <Seq>
+        <Chars String="&lt;" />
+        <Number Min="0" Max="1">
+          <Seq>
+            <Call RuleName="name" />
+            <Number Min="0">
+              <Seq>
+                <Chars String="." />
+                <Call RuleName="name" />
+              </Seq>
+            </Number>
+          </Seq>
+        </Number>
+        <Chars String="&gt;" />
+      </Seq>
+    </Number>
+  </Rule>
+  <Rule Name="rule.body">
+    <Alts>
+      <Call RuleName="rule.body.simple" />
+      <Call RuleName="rule.body.cases" />
+    </Alts>
+  </Rule>
+  <Rule Name="rule.body.simple">
+    <Seq>
+      <Call RuleName="expr" />
+      <Number Min="0" Max="1">
+        <Seq>
+          <Chars String="{" />
+          <Call RuleName="imports" />
+          <Number Min="0">
+            <Call RuleName="rule" />
+          </Number>
+          <Chars String="}" />
+        </Seq>
+      </Number>
+    </Seq>
+  </Rule>
+  <Rule Name="rule.body.cases">
+    <Seq>
+      <Chars String="{" />
+      <Call RuleName="imports" />
+      <Number Min="0">
+        <Call RuleName="rule.body.cases.literal" />
+      </Number>
+      <Number Min="0">
+        <Call RuleName="rule.body.cases.entry" />
+      </Number>
+      <Number Min="0">
+        <Call RuleName="rule" />
+      </Number>
+      <Chars String="}" />
+    </Seq>
+  </Rule>
+  <Rule Name="rule.body.cases.literal">
+    <Seq>
+      <Chars String="|" />
+      <Call RuleName="name" />
+    </Seq>
+  </Rule>
+  <Rule Name="rule.body.cases.entry">
+    <Seq>
+      <Number Min="0" Max="1">
+        <Call RuleName="rule.body.cases.priority" />
+      </Number>
+      <Chars String="|" />
+      <Call RuleName="rule" />
+    </Seq>
+  </Rule>
+  <Rule Name="rule.body.cases.priority">
+    <Alts>
+      <Call RuleName="name" />
+      <Call RuleName="number" />
+    </Alts>
+  </Rule>
+
+  <Rule Name="commentsAndSpaces">
+    <Regex Pattern="([\s]*)(/\*(?>(?:(?>[^*]+)|\*(?!/))*)\*/[\s]*)*" />
+  </Rule>
+
+  <Rule Name="name">
+    <Regex Pattern="[a-zA-Z_][a-zA-Z0-9_]*" />
+  </Rule>
+  <Rule Name="number">
+    <Regex Pattern="[0-9]+" />
+  </Rule>
+  <Rule Name="hex">
+    <Regex Pattern="0x[a-fA-F0-9]+" />
+  </Rule>
+  <Rule Name="complexName">
+    <Seq>
+      <Call RuleName="name"/>
+      <Number Min="0">
+        <Seq>
+          <Chars String="."/>
+          <Call RuleName="name"/>
+        </Seq>
+      </Number>
+    </Seq>
+  </Rule>
+
+  <Rule Name="attrs">
+    <Number Min="0">
+      <Call RuleName="attrs.collection" />
+    </Number>
+  </Rule>
+  <Rule Name="attrs.usageArgList">
+    <Number Min="0" Max="1">
+      <Seq>
+        <Chars String="(" />
+        <Call RuleName="expr" />
+        <Number Min="0">
+          <Seq>
+            <Chars String="," />
+            <Call RuleName="expr" />
+          </Seq>
+        </Number>
+        <Chars String=")" />
+      </Seq>
+    </Number>
+  </Rule>
+  <Rule Name="attrs.usage">
+    <Seq>
+      <Call RuleName="complexName" />
+      <Call RuleName="attrs.usageArgList" />
+    </Seq>
+  </Rule>
+  <Rule Name="attrs.collection">
+    <Seq>
+      <Chars String="[" />
+      <Call RuleName="attrs.usage" />
+      <Number Min="0">
+        <Seq>
+          <Chars String="," />
+          <Call RuleName="attrs.usage" />
+        </Seq>
+      </Number>
+      <Chars String="]" />
+    </Seq>
+  </Rule>
+
+  <Rule Name="expr">
+    <Alts>
+      <Call RuleName="expr.complex" />
+      <Call RuleName="expr.simple" />
+    </Alts>
+  </Rule>
+  <Rule Name="expr.complex">
+    <Alts>
+      <Call RuleName="expr.complex.alternatives" />
+      <Call RuleName="expr.complex.sequence" />
+      <Call RuleName="expr.complex.repeat" />
+    </Alts>
+  </Rule>
+  <Rule Name="expr.complex.sequence">
+    <Seq>
+      <Call RuleName="expr.complex.sequence.item" />
+      <Number Min="1">
+        <Call RuleName="expr.complex.sequence.item" />
+      </Number>
+    </Seq>
+  </Rule>
+  <Rule Name="expr.complex.sequence.item">
+    <Alts>
+      <Call RuleName="expr.complex.alternatives" />
+      <Call RuleName="expr.complex.repeat" />
+      <Call RuleName="expr.simple" />
+    </Alts>
+  </Rule>
+  <Rule Name="expr.complex.alternatives">
+    <Seq>
+      <Call RuleName="expr.complex.alternatives.item" />
+      <Number Min="1">
+        <Seq>
+          <Chars String="|" />
+          <Call RuleName="expr.complex.alternatives.item" />
+        </Seq>
+      </Number>
+    </Seq>
+  </Rule>
+  <Rule Name="expr.complex.alternatives.item">
+    <Alts>
+      <Call RuleName="expr.complex.alternatives" />
+      <Call RuleName="expr.complex.repeat" />
+      <Call RuleName="expr.simple" />
+    </Alts>
+  </Rule>
+  <Rule Name="expr.complex.repeat">
+    <Seq>
+      <Call RuleName="expr.simple"/>
+      <Call RuleName="expr.complex.repeat.quantor" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.complex.repeat.quantor">
+    <Alts>
+      <Chars String="*" />
+      <Chars String="+" />
+      <Chars String="?" />
+      <Seq>
+        <Chars String="{" />
+        <Call RuleName="expr.complex.repeat.qnumbers"/>
+        <Chars String="}" />
+      </Seq>
+    </Alts>
+  </Rule>
+  <Rule Name="expr.complex.repeat.qnumbers">
+    <Alts>
+      <Call RuleName="expr.complex.repeat.qnumbers.full"/>
+      <Call RuleName="expr.complex.repeat.qnumbers.max"/>
+      <Call RuleName="expr.complex.repeat.qnumbers.min"/>
+      <Call RuleName="expr.complex.repeat.qnumbers.exact"/>
+    </Alts>
+  </Rule>
+  <Rule Name="expr.complex.repeat.qnumbers.full">
+    <Seq>
+      <Call RuleName="number" />
+      <Chars String="," />
+      <Call RuleName="number" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.complex.repeat.qnumbers.max">
+    <Seq>
+      <Chars String="," />
+      <Call RuleName="number" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.complex.repeat.qnumbers.min">
+    <Seq>
+      <Call RuleName="number" />
+      <Chars String="," />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.complex.repeat.qnumbers.exact">
+    <Seq>
+      <Call RuleName="number" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.simple">
+    <Alts>
+      <Call RuleName="expr.simple.string" />
+      <Call RuleName="expr.simple.chars" />
+      <Call RuleName="expr.simple.anyChar" />
+      <Call RuleName="expr.simple.charCode" />
+      <Call RuleName="expr.simple.group" />
+      <Call RuleName="expr.simple.check" />
+      <Call RuleName="expr.simple.checkNot" />
+      <Call RuleName="expr.simple.usage" />
+    </Alts>
+  </Rule>
+  <Rule Name="expr.simple.string">
+    <Regex Pattern="\&quot;[^\&quot;\\]*(?:\\.[^\&quot;\\]*)*\&quot;"/>
+  </Rule>
+  <Rule Name="expr.simple.chars">
+    <Regex Pattern="'[^']*'" />
+  </Rule>
+  <Rule Name="expr.simple.anyChar">
+    <Chars String="." />
+  </Rule>
+  <Rule Name="expr.simple.charCode">
+    <Call RuleName="hex"/>
+  </Rule>
+  <Rule Name="expr.simple.group">
+    <Seq>
+      <Chars String="(" />
+      <Call RuleName="expr" />
+      <Chars String=")" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.simple.check">
+    <Seq>
+      <Chars String="&amp;" />
+      <Call RuleName="expr.simple" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.simple.checkNot">
+    <Seq>
+      <Chars String="!" />
+      <Call RuleName="expr.simple" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.simple.usage">
+    <Seq>
+      <Number Min="0" Max="1">
+        <Call RuleName="expr.simple.usage.fieldSpec" />
+      </Number>
+      <Call RuleName="expr.simple.usage.flag" />
+      <Call RuleName="complexName" />
+      <Call RuleName="expr.simple.usage.args" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.simple.usage.fieldSpec">
+    <Seq>
+      <Call RuleName="name" />
+      <Call RuleName="expr.simple.usage.fieldSpec.kind" />
+    </Seq>
+  </Rule>
+  <Rule Name="expr.simple.usage.fieldSpec.kind">
+    <Alts>
+      <Call RuleName="expr.simple.usage.fieldSpec.kind.collection" />
+      <Call RuleName="expr.simple.usage.fieldSpec.kind.solitary" />
+    </Alts>
+  </Rule>
+  <Rule Name="expr.simple.usage.fieldSpec.kind.collection">
+    <Chars String="+=" />
+  </Rule>
+  <Rule Name="expr.simple.usage.fieldSpec.kind.solitary">
+    <Chars String="=" />
+  </Rule>
+  <Rule Name="expr.simple.usage.flag">
+    <Number Min="0" Max="1">
+      <Alts>
+        <Chars String="%" />
+        <Chars String="#" />
+      </Alts>
+    </Number>
+  </Rule>
+  <Rule Name="expr.simple.usage.args">
+    <Number Min="0" Max="1">
+      <Seq>
+        <Chars String="&lt;" />
+        <Number Min="0" Max="1">
+          <Seq>
+            <Call RuleName="expr" />
+            <Number Min="0">
+              <Seq>
+                <Chars String="," />
+                <Call RuleName="expr" />
+              </Seq>
+            </Number>
+          </Seq>
+        </Number>
+        <Chars String="&gt;" />
+      </Seq>
+    </Number>
+  </Rule>
+
+</Grammar>
